@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Flux.Messaging.Abstractions/Flux.Messaging.Abstractions.csproj" />
+  <Project Path="Flux.Messaging.Core/Flux.Messaging.Core.csproj" />
+  <Project Path="Flux.Messaging.InMemory/Flux.Messaging.InMemory.csproj" />
+  <Project Path="Flux.Messaging.Tests/Flux.Messaging.Tests.csproj" />
+  <Project Path="Flux.Messaging/Flux.Messaging.csproj" />
+</Solution>
