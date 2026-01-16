@@ -1,0 +1,31 @@
+using Flux.Messaging.Abstractions.Bus;
+using Flux.Messaging.Abstractions.Request;
+using Flux.Messaging.Extensions.DependencyInjection;
+using Flux.Messaging.Tests.Send.Handlers;
+using Flux.Messaging.Tests.Send.Requests;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Flux.Messaging.Tests.Send.Bus;
+
+public class BusConcurrencyTests
+{
+    [Fact]
+    public async Task SendAsync_ShouldHandleConcurrentRequests()
+    {
+        var services = new ServiceCollection();
+
+        services.AddTransient<IRequestHandler<PingRequest, string>, PingRequestHandler>();
+        services.AddFluxMessaging()
+            .UseInMemory();
+
+        await using var provider = services.BuildServiceProvider();
+        var bus = provider.GetRequiredService<IMessageBus>();
+
+        var tasks = Enumerable.Range(0, 20)
+            .Select(_ => bus.SendAsync(new PingRequest()));
+
+        var results = await Task.WhenAll(tasks);
+
+        Assert.All(results, r => Assert.Equal("pong", r));
+    }
+}

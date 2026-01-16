@@ -1,10 +1,10 @@
 using Flux.Messaging.Abstractions.Bus;
 using Flux.Messaging.Abstractions.Message;
 using Flux.Messaging.Extensions.DependencyInjection;
-using Flux.Messaging.Tests.Handlers;
+using Flux.Messaging.Tests.Publish.Handlers;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Flux.Messaging.Tests.Bus;
+namespace Flux.Messaging.Tests.Publish.Bus;
 
 public class BusFaultToleranceTests
 {

@@ -1,6 +1,6 @@
 using Flux.Messaging.Abstractions.Message;
 
-namespace Flux.Messaging.Tests.Handlers;
+namespace Flux.Messaging.Tests.Publish.Handlers;
 
 public sealed class IntMessageHandler : IMessageHandler<int>
 {
