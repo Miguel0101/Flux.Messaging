@@ -1,4 +1,4 @@
-namespace Flux.Messaging.Abstractions;
+namespace Flux.Messaging.Abstractions.Message;
 
 public interface IDynamicMessageHandler
 {

@@ -1,4 +1,5 @@
-using Flux.Messaging.Abstractions;
+using Flux.Messaging.Abstractions.Bus;
+using Flux.Messaging.Abstractions.Message;
 using Flux.Messaging.Extensions.DependencyInjection;
 using Flux.Messaging.Tests.Handlers;
 using Microsoft.Extensions.DependencyInjection;

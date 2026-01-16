@@ -1,5 +1,6 @@
-﻿using Flux.Messaging.Abstractions;
-using Flux.Messaging.Core;
+﻿using Flux.Messaging.Abstractions.Bus;
+using Flux.Messaging.Abstractions.Dispatcher;
+using Flux.Messaging.Abstractions.Transport;
 using Flux.Messaging.InMemory;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,14 +12,14 @@ public static class ServiceCollectionExtensions
     {
         var builder = new FluxMessagingBuilder(services);
 
-        builder.Services.AddSingleton<IMessageDispatcher, MessageDispatcher>();
-
         return builder;
     }
 
     public static IFluxMessagingBuilder UseInMemory(this IFluxMessagingBuilder builder)
     {
         builder.Services.AddSingleton<IMessageBus, InMemoryMessageBus>();
+        builder.Services.AddSingleton<ITransport, InMemoryTransport>();
+        builder.Services.AddSingleton<IMessageDispatcher, InMemoryMessageDispatcher>();
 
         return builder;
     }

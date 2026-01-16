@@ -1,10 +1,10 @@
-name: .NET CI
+name: .NET CD
 
 on:
   push:
-    branches: ["*"]
+    branches: ["main"]
   pull_request:
-    branches: ["*"]
+    branches: ["main"]
 
 jobs:
   build:
@@ -26,3 +26,9 @@ jobs:
 
       - name: Run tests
         run: dotnet test
+
+      - name: Pack
+        run: dotnet pack -c Release
+
+      - name: Publish
+        run: dotnet push "**/*.nupkg" -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json
