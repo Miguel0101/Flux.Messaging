@@ -34,7 +34,7 @@ internal sealed class InMemoryMessageDispatcher : IMessageDispatcher
         {
             try
             {
-                await h.HandleAsync(envelope.Payload);
+                await h.HandleAsync(envelope.Payload, ct);
             }
             catch (Exception e)
             {
@@ -48,20 +48,26 @@ internal sealed class InMemoryMessageDispatcher : IMessageDispatcher
     public async Task<object> DispatchRequestAsync(IMessageEnvelope envelope, CancellationToken ct = default)
     {
         var payloadType = envelope.Payload.GetType();
-        var handlerType = typeof(IGenericRequestHandler<>).MakeGenericType(payloadType);
+
+        var requestInterface = payloadType.GetInterfaces()
+            .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IRequest<>)) ??
+                throw new InvalidOperationException($"{payloadType.Name} does not implement IRequest<out TResponse>");
+
+        var responseType = requestInterface.GetGenericArguments()[0];
+        var handlerType = typeof(IRequestHandler<,>).MakeGenericType(payloadType, responseType);
 
         using var scope = _provider.CreateScope();
 
         var handlers = scope.ServiceProvider
             .GetServices(handlerType)
-            .OfType<IDynamicRequestHandler>()
+            .Cast<IDynamicRequestHandler>()
             .ToArray();
 
         return handlers.Length switch
         {
-            0 => throw new InvalidOperationException($"No handler found for request type {payloadType.Name}."),
+            0 => throw new InvalidOperationException($"No handler registered found for {payloadType.Name}."),
             1 => await handlers[0].HandleAsync(envelope.Payload, ct),
-            _ => throw new InvalidOperationException($"Multiple handlers found for request type {payloadType.Name}. A request must have exactly one handler.")
+            _ => throw new InvalidOperationException($"Multiple handlers found for {payloadType.Name}.")
         };
     }
 }

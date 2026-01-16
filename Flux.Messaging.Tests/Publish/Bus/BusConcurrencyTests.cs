@@ -1,17 +1,17 @@
 using Flux.Messaging.Abstractions.Bus;
 using Flux.Messaging.Abstractions.Message;
 using Flux.Messaging.Extensions.DependencyInjection;
-using Flux.Messaging.Tests.Handlers;
+using Flux.Messaging.Tests.Publish.Handlers;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Flux.Messaging.Tests.Bus;
+namespace Flux.Messaging.Tests.Publish.Bus;
 
-public class BusDispatchTests
+public class BusConcurrencyTests
 {
     [Fact]
-    public async Task PublishAsync_ShouldDispatchMessageToRegisteredHandler()
+    public async Task PublishAsync_ShouldSupportConcurrentPublishing()
     {
-        var handler = new CapturingMessageHandler();
+        var handler = new CountingMessageHandler();
 
         var services = new ServiceCollection();
 
@@ -22,13 +22,14 @@ public class BusDispatchTests
         await using var provider = services.BuildServiceProvider();
         var messageBus = provider.GetRequiredService<IMessageBus>();
 
-        const string publishedMessage = "Hello World";
+        var publishTasks = Enumerable.Range(0, 3)
+            .Select(i => messageBus.PublishAsync($"Message {i}"));
 
-        await messageBus.PublishAsync(publishedMessage);
+        await Task.WhenAll(publishTasks);
 
-        var receivedMessage = await handler.ReceivedMessage.Task
+        var count = await handler.ReceivedCount.Task
             .WaitAsync(TimeSpan.FromSeconds(1));
 
-        Assert.Equal(publishedMessage, receivedMessage);
+        Assert.Equal(3, count);
     }
 }
