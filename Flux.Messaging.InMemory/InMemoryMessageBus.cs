@@ -1,20 +1,26 @@
-﻿using System.Threading.Channels;
-using Flux.Messaging.Abstractions;
+﻿using System.Collections.Concurrent;
+using Flux.Messaging.Abstractions.Bus;
+using Flux.Messaging.Abstractions.Dispatcher;
+using Flux.Messaging.Abstractions.Envelope;
+using Flux.Messaging.Abstractions.Request;
+using Flux.Messaging.Abstractions.Transport;
 using Flux.Messaging.Core;
 
 namespace Flux.Messaging.InMemory;
 
 internal sealed class InMemoryMessageBus : IMessageBus, IAsyncDisposable
 {
-    private readonly Channel<MessageEnvelope> _channel;
+    private readonly ITransport _transport;
     private readonly IMessageDispatcher _dispatcher;
-    private readonly Task _processingTask;
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<object>> _pending;
 
-    public InMemoryMessageBus(IMessageDispatcher dispatcher)
+    public InMemoryMessageBus(ITransport transport, IMessageDispatcher dispatcher)
     {
+        _transport = transport;
         _dispatcher = dispatcher;
-        _channel = Channel.CreateUnbounded<MessageEnvelope>();
-        _processingTask = ProcessAsync();
+        _pending = new ConcurrentDictionary<string, TaskCompletionSource<object>>();
+
+        _transport.SetReceiver(ReceiveEnvelopeAsync);
     }
 
     public async Task PublishAsync<T>(T message, CancellationToken ct = default)
@@ -22,20 +28,58 @@ internal sealed class InMemoryMessageBus : IMessageBus, IAsyncDisposable
         if (message is null)
             throw new ArgumentNullException(nameof(message));
 
-        await _channel.Writer.WriteAsync(MessageEnvelope.Create(message), ct);
+        var envelope = MessageEnvelope.Create(message);
+        await _transport.SendAsync(envelope, ct);
     }
 
-    private async Task ProcessAsync()
+    public async Task<TResult> SendAsync<TResult>(IRequest<TResult> command, CancellationToken ct = default)
     {
-        await foreach (var envelope in _channel.Reader.ReadAllAsync())
+        ArgumentNullException.ThrowIfNull(command);
+
+        var replyTo = Guid.NewGuid().ToString("N");
+        var envelope = MessageEnvelope.CreateRequest(command, replyTo);
+        var tcs = new TaskCompletionSource<object>();
+
+        _pending[envelope.Id] = tcs;
+
+        await _transport.SendAsync(envelope, ct);
+
+        var result = await tcs.Task;
+        return (TResult)result;
+    }
+
+    private async void ReceiveEnvelopeAsync(IMessageEnvelope envelope)
+    {
+        try
         {
-            await _dispatcher.DispatchAsync(envelope);
+            if (!string.IsNullOrEmpty(envelope.CorrelationId))
+            {
+                if (_pending.TryRemove(envelope.CorrelationId, out var tcs))
+                {
+                    tcs.SetResult(envelope.Payload);
+                    return;
+                }
+            }
+
+            if (string.IsNullOrEmpty(envelope.ReplyTo))
+            {
+                await _dispatcher.DispatchPublishAsync(envelope);
+                return;
+            }
+
+            var response = await _dispatcher.DispatchRequestAsync(envelope);
+            var replyEnvelope = MessageEnvelope.CreateResponse(response, envelope.Id);
+
+            await _transport.SendAsync(replyEnvelope);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in MessageBus.ReceiveEnvelopeAsync: {ex.Message}");
         }
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        _channel.Writer.Complete();
-        await _processingTask;
+        return _transport.DisposeAsync();
     }
 }
