@@ -32,12 +32,12 @@ internal sealed class InMemoryMessageBus : IMessageBus, IAsyncDisposable
         await _transport.SendAsync(envelope, ct);
     }
 
-    public async Task<TResult> SendAsync<TResult>(IRequest<TResult> command, CancellationToken ct = default)
+    public async Task<TResult> SendAsync<TResult>(IRequest<TResult> message, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        ArgumentNullException.ThrowIfNull(message);
 
         var replyTo = Guid.NewGuid().ToString("N");
-        var envelope = MessageEnvelope.CreateRequest(command, replyTo);
+        var envelope = MessageEnvelope.CreateRequest(message, replyTo);
         var tcs = new TaskCompletionSource<object>();
 
         _pending[envelope.Id] = tcs;
@@ -74,7 +74,14 @@ internal sealed class InMemoryMessageBus : IMessageBus, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in MessageBus.ReceiveEnvelopeAsync: {ex.Message}");
+            if (_pending.TryRemove(envelope.Id, out var tcs))
+            {
+                tcs.TrySetException(ex);
+            }
+            else
+            {
+                Console.WriteLine($"Error in MessageBus.ReceiveEnvelopeAsync: {ex.Message}");
+            }
         }
     }
 
