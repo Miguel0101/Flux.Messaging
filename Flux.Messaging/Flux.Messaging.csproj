@@ -10,7 +10,7 @@
 
   <PropertyGroup>
     <PackageId>Flux.Messaging</PackageId>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Authors>Miguel Magno</Authors>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <TargetFramework>net10.0</TargetFramework>
