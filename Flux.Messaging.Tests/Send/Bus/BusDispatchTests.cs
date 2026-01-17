@@ -1,4 +1,5 @@
 using Flux.Messaging.Abstractions.Bus;
+using Flux.Messaging.Abstractions.Providers;
 using Flux.Messaging.Abstractions.Request;
 using Flux.Messaging.Extensions.DependencyInjection;
 using Flux.Messaging.Tests.Send.Handlers;
@@ -19,9 +20,9 @@ public class BusDispatchTests
             .UseInMemory();
 
         await using var provider = services.BuildServiceProvider();
-        var bus = provider.GetRequiredService<IMessageBus>();
+        var messageBus = provider.GetRequiredKeyedService<IMessageBus>(MessagingProviders.InMemory);
 
-        var result = await bus.SendAsync(new PingRequest());
+        var result = await messageBus.SendAsync(new PingRequest());
 
         Assert.Equal("pong", result);
     }

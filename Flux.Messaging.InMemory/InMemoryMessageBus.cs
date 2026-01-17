@@ -2,9 +2,11 @@
 using Flux.Messaging.Abstractions.Bus;
 using Flux.Messaging.Abstractions.Dispatcher;
 using Flux.Messaging.Abstractions.Envelope;
+using Flux.Messaging.Abstractions.Providers;
 using Flux.Messaging.Abstractions.Request;
 using Flux.Messaging.Abstractions.Transport;
 using Flux.Messaging.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Flux.Messaging.InMemory;
 
@@ -14,7 +16,7 @@ internal sealed class InMemoryMessageBus : IMessageBus, IAsyncDisposable
     private readonly IMessageDispatcher _dispatcher;
     private readonly ConcurrentDictionary<string, TaskCompletionSource<object>> _pending;
 
-    public InMemoryMessageBus(ITransport transport, IMessageDispatcher dispatcher)
+    public InMemoryMessageBus([FromKeyedServices(MessagingProviders.InMemory)] ITransport transport, [FromKeyedServices(MessagingProviders.InMemory)] IMessageDispatcher dispatcher)
     {
         _transport = transport;
         _dispatcher = dispatcher;
