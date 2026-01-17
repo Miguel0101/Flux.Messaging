@@ -1,4 +1,5 @@
 using Flux.Messaging.Abstractions.Bus;
+using Flux.Messaging.Abstractions.Providers;
 using Flux.Messaging.Abstractions.Request;
 using Flux.Messaging.Extensions.DependencyInjection;
 using Flux.Messaging.Tests.Send.Handlers;
@@ -21,10 +22,10 @@ public class BusMultiHandlerTests
             .UseInMemory();
 
         await using var provider = services.BuildServiceProvider();
-        var bus = provider.GetRequiredService<IMessageBus>();
+        var messageBus = provider.GetRequiredKeyedService<IMessageBus>(MessagingProviders.InMemory);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            bus.SendAsync(new PingRequest())
+            messageBus.SendAsync(new PingRequest())
         );
     }
 }
