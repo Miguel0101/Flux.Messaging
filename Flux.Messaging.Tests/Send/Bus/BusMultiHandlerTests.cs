@@ -5,7 +5,7 @@ using Flux.Messaging.Extensions.DependencyInjection;
 using Flux.Messaging.Tests.Send.Handlers;
 using Flux.Messaging.Tests.Send.Requests;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace Flux.Messaging.Tests.Send.Bus;
 
@@ -16,6 +16,7 @@ public class BusMultiHandlerTests
     {
         var services = new ServiceCollection();
 
+        services.AddLogging(builder => builder.AddConsole());
         services.AddTransient<IRequestHandler<PingRequest, string>, PingRequestHandler>();
         services.AddTransient<IRequestHandler<PingRequest, string>, PingRequestHandler>();
         services.AddFluxMessaging()

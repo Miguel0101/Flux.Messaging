@@ -50,7 +50,7 @@ internal sealed class InMemoryMessageBus : IMessageBus, IAsyncDisposable
         return (TResult)result;
     }
 
-    private async void ReceiveEnvelopeAsync(IMessageEnvelope envelope)
+    private async Task ReceiveEnvelopeAsync(IMessageEnvelope envelope)
     {
         try
         {

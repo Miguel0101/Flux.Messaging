@@ -6,7 +6,7 @@ namespace Flux.Messaging.InMemory;
 
 internal sealed class InMemoryTransport : ITransport
 {
-    private Action<IMessageEnvelope>? _receiver;
+    private Func<IMessageEnvelope, Task>? _receiver;
     private readonly Channel<IMessageEnvelope> _channel;
     private readonly Task _processingTask;
 
@@ -18,26 +18,40 @@ internal sealed class InMemoryTransport : ITransport
 
     public async Task SendAsync(IMessageEnvelope envelope, CancellationToken ct = default)
     {
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        envelope.Headers["InMemoryAck"] = tcs;
+
         await _channel.Writer.WriteAsync(envelope, ct);
+
+        await tcs.Task;
     }
 
-    public void SetReceiver(Action<IMessageEnvelope> receiver)
+    public void SetReceiver(Func<IMessageEnvelope, Task> receiver)
     {
-        _receiver = receiver ?? throw new ArgumentNullException(nameof(receiver));
+        _receiver = receiver;
     }
 
     private async Task ProcessAsync()
     {
         await foreach (var envelope in _channel.Reader.ReadAllAsync())
         {
-            try
+            _ = Task.Run(async () =>
             {
-                _receiver?.Invoke(envelope);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error in InMemoryTransport receiver: {ex.Message}");
-            }
+                var ack = envelope.Headers["InMemoryAck"] as TaskCompletionSource<bool>;
+
+                try
+                {
+                    if (_receiver != null)
+                        await _receiver(envelope);
+
+                    ack?.TrySetResult(true);
+                }
+                catch (Exception ex)
+                {
+                    ack?.TrySetException(ex);
+                }
+            });
         }
     }
 
