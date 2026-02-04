@@ -13,6 +13,8 @@
     <Version>1.2.1</Version>
     <Authors>Miguel Magno</Authors>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/Miguel0101/Flux.Messaging</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
