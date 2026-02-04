@@ -7,5 +7,6 @@ public interface IMessageEnvelope
     string Type { get; }
     object Payload { get; }
     string? ReplyTo { get; }
+    Dictionary<string, object> Headers { get; set; }
     DateTimeOffset Timestamp { get; }
 }

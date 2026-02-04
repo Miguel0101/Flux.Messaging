@@ -3,24 +3,18 @@ using Flux.Messaging.Abstractions.Envelope;
 using Flux.Messaging.Abstractions.Request;
 using Flux.Messaging.Abstractions.Message;
 using Flux.Messaging.Abstractions.Dispatcher;
+using Microsoft.Extensions.Logging;
 
 namespace Flux.Messaging.InMemory;
 
-internal sealed class InMemoryMessageDispatcher : IMessageDispatcher
+internal sealed class InMemoryMessageDispatcher(IServiceProvider provider, ILogger<InMemoryMessageDispatcher> logger) : IMessageDispatcher
 {
-    private readonly IServiceProvider _provider;
-
-    public InMemoryMessageDispatcher(IServiceProvider provider)
-    {
-        _provider = provider;
-    }
-
     public async Task DispatchPublishAsync(IMessageEnvelope envelope, CancellationToken ct)
     {
         var messageType = envelope.Payload.GetType();
         var handlerType = typeof(IMessageHandler<>).MakeGenericType(messageType);
 
-        using var scope = _provider.CreateScope();
+        using var scope = provider.CreateScope();
 
         var handlers = scope.ServiceProvider
             .GetServices(handlerType)
@@ -38,7 +32,7 @@ internal sealed class InMemoryMessageDispatcher : IMessageDispatcher
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Message ID: {envelope.Id}\nMessage type: {envelope.Type}\nMessage Timestamp: {envelope.Timestamp}\nException Message: {e.Message}");
+                logger.LogError("Message ID: {Id}\nMessage type: {Type}\nMessage Timestamp: {Timestamp}\nException Message: {Message}", envelope.Id, envelope.Type, envelope.Timestamp, e.Message);
             }
         });
 
@@ -56,7 +50,7 @@ internal sealed class InMemoryMessageDispatcher : IMessageDispatcher
         var responseType = requestInterface.GetGenericArguments()[0];
         var handlerType = typeof(IRequestHandler<,>).MakeGenericType(payloadType, responseType);
 
-        using var scope = _provider.CreateScope();
+        using var scope = provider.CreateScope();
 
         var handlers = scope.ServiceProvider
             .GetServices(handlerType)

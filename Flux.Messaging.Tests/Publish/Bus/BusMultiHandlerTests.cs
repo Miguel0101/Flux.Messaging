@@ -4,6 +4,7 @@ using Flux.Messaging.Abstractions.Providers;
 using Flux.Messaging.Extensions.DependencyInjection;
 using Flux.Messaging.Tests.Publish.Handlers;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Flux.Messaging.Tests.Publish.Bus;
 
@@ -17,6 +18,7 @@ public class BusMultiHandlerTests
 
         var services = new ServiceCollection();
 
+        services.AddLogging(builder => builder.AddConsole());
         services.AddSingleton<IMessageHandler<string>>(handler1);
         services.AddSingleton<IMessageHandler<string>>(handler2);
         services.AddFluxMessaging()
