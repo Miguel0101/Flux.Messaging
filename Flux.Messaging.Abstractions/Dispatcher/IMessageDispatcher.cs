@@ -4,6 +4,6 @@ namespace Flux.Messaging.Abstractions.Dispatcher;
 
 public interface IMessageDispatcher
 {
-    Task DispatchPublishAsync(IMessageEnvelope envelope, CancellationToken ct = default);
-    Task<object> DispatchRequestAsync(IMessageEnvelope envelope, CancellationToken ct = default);
+    Task DispatchPublishAsync(MessageEnvelope envelope, CancellationToken ct = default);
+    Task<object> DispatchRequestAsync(MessageEnvelope envelope, CancellationToken ct = default);
 }
