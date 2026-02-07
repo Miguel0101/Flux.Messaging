@@ -5,11 +5,11 @@ using Flux.Messaging.Abstractions.Message;
 using Flux.Messaging.Abstractions.Dispatcher;
 using Microsoft.Extensions.Logging;
 
-namespace Flux.Messaging.InMemory;
+namespace Flux.Messaging.InMemory.Dispatcher;
 
 internal sealed class InMemoryMessageDispatcher(IServiceProvider provider, ILogger<InMemoryMessageDispatcher> logger) : IMessageDispatcher
 {
-    public async Task DispatchPublishAsync(IMessageEnvelope envelope, CancellationToken ct)
+    public Task DispatchPublishAsync(MessageEnvelope envelope, CancellationToken ct)
     {
         var messageType = envelope.Payload.GetType();
         var handlerType = typeof(IMessageHandler<>).MakeGenericType(messageType);
@@ -22,24 +22,25 @@ internal sealed class InMemoryMessageDispatcher(IServiceProvider provider, ILogg
             .ToArray();
 
         if (handlers.Length == 0)
-            return;
+            return Task.CompletedTask;
 
-        var tasks = handlers.Select(async h =>
+        var tasks = handlers.Select(h =>
         {
             try
             {
-                await h.HandleAsync(envelope.Payload, ct);
+                return h.HandleAsync(envelope.Payload, ct);
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                logger.LogError("Message ID: {Id}\nMessage type: {Type}\nMessage Timestamp: {Timestamp}\nException Message: {Message}", envelope.Id, envelope.Type, envelope.Timestamp, e.Message);
+                logger.LogError(ex, "Message ID: {Id}\nMessage type: {Type}\nMessage Timestamp: {Timestamp}", envelope.Id, envelope.PayloadType, envelope.Timestamp);
+                return Task.CompletedTask;
             }
         });
 
-        await Task.WhenAll(tasks);
+        return Task.WhenAll(tasks);
     }
 
-    public async Task<object> DispatchRequestAsync(IMessageEnvelope envelope, CancellationToken ct = default)
+    public Task<object> DispatchRequestAsync(MessageEnvelope envelope, CancellationToken ct = default)
     {
         var payloadType = envelope.Payload.GetType();
 
@@ -60,7 +61,7 @@ internal sealed class InMemoryMessageDispatcher(IServiceProvider provider, ILogg
         return handlers.Length switch
         {
             0 => throw new InvalidOperationException($"No handler registered found for {payloadType.Name}."),
-            1 => await handlers[0].HandleAsync(envelope.Payload, ct),
+            1 => handlers[0].HandleAsync(envelope.Payload, ct),
             _ => throw new InvalidOperationException($"Multiple handlers found for {payloadType.Name}.")
         };
     }

@@ -10,7 +10,7 @@
 
   <PropertyGroup>
     <PackageId>Flux.Messaging</PackageId>
-    <Version>1.2.2</Version>
+    <Version>1.2.3</Version>
     <Authors>Miguel Magno</Authors>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/Miguel0101/Flux.Messaging</RepositoryUrl>
