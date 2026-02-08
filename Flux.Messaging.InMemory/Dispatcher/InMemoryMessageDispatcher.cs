@@ -9,12 +9,12 @@ namespace Flux.Messaging.InMemory.Dispatcher;
 
 internal sealed class InMemoryMessageDispatcher(IServiceProvider provider, ILogger<InMemoryMessageDispatcher> logger) : IMessageDispatcher
 {
-    public Task DispatchPublishAsync(MessageEnvelope envelope, CancellationToken ct)
+    public async Task DispatchPublishAsync(MessageEnvelope envelope, CancellationToken ct)
     {
         var messageType = envelope.Payload.GetType();
         var handlerType = typeof(IMessageHandler<>).MakeGenericType(messageType);
 
-        using var scope = provider.CreateScope();
+        await using var scope = provider.CreateAsyncScope();
 
         var handlers = scope.ServiceProvider
             .GetServices(handlerType)
@@ -22,25 +22,29 @@ internal sealed class InMemoryMessageDispatcher(IServiceProvider provider, ILogg
             .ToArray();
 
         if (handlers.Length == 0)
-            return Task.CompletedTask;
-
-        var tasks = handlers.Select(h =>
         {
-            try
-            {
-                return h.HandleAsync(envelope.Payload, ct);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Message ID: {Id}\nMessage type: {Type}\nMessage Timestamp: {Timestamp}", envelope.Id, envelope.PayloadType, envelope.Timestamp);
-                return Task.CompletedTask;
-            }
-        });
+            logger.LogWarning("No handler registered found for {MessageType}.", messageType.Name);
+            return;
+        }
 
-        return Task.WhenAll(tasks);
+        var tasks = handlers.Select(handler => ExecuteHandlerAsync(handler, envelope, ct)).ToList();
+
+        await Task.WhenAll(tasks);
     }
 
-    public Task<object> DispatchRequestAsync(MessageEnvelope envelope, CancellationToken ct = default)
+    private async Task ExecuteHandlerAsync(IDynamicMessageHandler handler, MessageEnvelope envelope, CancellationToken ct)
+    {
+        try
+        {
+            await handler.HandleAsync(envelope.Payload, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Message ID: {Id}\nMessage type: {Type}\nMessage Timestamp: {Timestamp}", envelope.Id, envelope.PayloadType, envelope.Timestamp);
+        }
+    }
+
+    public async Task<object> DispatchRequestAsync(MessageEnvelope envelope, CancellationToken ct = default)
     {
         var payloadType = envelope.Payload.GetType();
 
@@ -51,7 +55,7 @@ internal sealed class InMemoryMessageDispatcher(IServiceProvider provider, ILogg
         var responseType = requestInterface.GetGenericArguments()[0];
         var handlerType = typeof(IRequestHandler<,>).MakeGenericType(payloadType, responseType);
 
-        using var scope = provider.CreateScope();
+        await using var scope = provider.CreateAsyncScope();
 
         var handlers = scope.ServiceProvider
             .GetServices(handlerType)
@@ -61,7 +65,7 @@ internal sealed class InMemoryMessageDispatcher(IServiceProvider provider, ILogg
         return handlers.Length switch
         {
             0 => throw new InvalidOperationException($"No handler registered found for {payloadType.Name}."),
-            1 => handlers[0].HandleAsync(envelope.Payload, ct),
+            1 => await handlers[0].HandleAsync(envelope.Payload, ct),
             _ => throw new InvalidOperationException($"Multiple handlers found for {payloadType.Name}.")
         };
     }
