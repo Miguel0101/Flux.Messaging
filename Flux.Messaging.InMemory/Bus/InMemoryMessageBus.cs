@@ -6,7 +6,6 @@ using Flux.Messaging.Abstractions.Request;
 using Flux.Messaging.Abstractions.RequestResponse;
 using Flux.Messaging.Abstractions.Transport;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace Flux.Messaging.InMemory.Bus;
 
@@ -15,26 +14,23 @@ internal sealed class InMemoryMessageBus : IMessageBus, IAsyncDisposable
     private readonly ITransport _transport;
     private readonly IEnvelopeProcessingStrategy _envelopeProcessing;
     private readonly IPendingRequestsManager _pendingRequests;
-    private readonly ILogger _logger;
+    private bool _disposed = false;
 
     public InMemoryMessageBus(
         [FromKeyedServices(MessagingProviders.InMemory)] ITransport transport,
         [FromKeyedServices(MessagingProviders.InMemory)] IEnvelopeProcessingStrategy envelopeProcessing,
-        [FromKeyedServices(MessagingProviders.InMemory)] IPendingRequestsManager pendingRequests,
-        ILogger<InMemoryMessageBus> logger)
+        [FromKeyedServices(MessagingProviders.InMemory)] IPendingRequestsManager pendingRequests)
     {
         _transport = transport;
         _envelopeProcessing = envelopeProcessing;
         _pendingRequests = pendingRequests;
-        _logger = logger;
 
         _transport.SetReceiver(ReceiveEnvelopeAsync);
     }
 
     public Task PublishAsync<T>(T message, CancellationToken ct = default)
     {
-        if (message is null)
-            throw new ArgumentNullException(nameof(message));
+        ArgumentNullException.ThrowIfNull(message);
 
         var envelope = MessageEnvelope.CreatePublish(message);
 
@@ -47,7 +43,7 @@ internal sealed class InMemoryMessageBus : IMessageBus, IAsyncDisposable
 
         var replyTo = Guid.NewGuid().ToString("N");
         var envelope = MessageEnvelope.CreateRequest(message, replyTo);
-        var tcs = new TaskCompletionSource<object>();
+        var tcs = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         _pendingRequests.Register(envelope.Id, tcs);
 
@@ -58,27 +54,21 @@ internal sealed class InMemoryMessageBus : IMessageBus, IAsyncDisposable
         return (TResult)result;
     }
 
-    private async Task ReceiveEnvelopeAsync(MessageEnvelope envelope)
+    private Task ReceiveEnvelopeAsync(MessageEnvelope envelope, CancellationToken ct)
     {
-        try
-        {
-            await _envelopeProcessing.ProcessAsync(envelope);
-        }
-        catch (Exception ex)
-        {
-            if (_pendingRequests.TryRemove(envelope.Id, out var tcs))
-            {
-                tcs!.TrySetException(ex);
-            }
-            else
-            {
-                _logger.LogError(ex, "An error occurred processing the envelope {EnvelopeId}", envelope.Id);
-            }
-        }
+        return _envelopeProcessing.ProcessAsync(envelope, ct);
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
-        return _transport.DisposeAsync();
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        _pendingRequests.CancelAll();
+        await _transport.DisposeAsync();
     }
 }
