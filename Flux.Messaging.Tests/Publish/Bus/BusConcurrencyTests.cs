@@ -1,5 +1,5 @@
 using Flux.Messaging.Abstractions.Bus;
-using Flux.Messaging.Abstractions.Message;
+using Flux.Messaging.Abstractions.Messages;
 using Flux.Messaging.Abstractions.Providers;
 using Flux.Messaging.Extensions.DependencyInjection;
 using Flux.Messaging.Tests.Publish.Handlers;
@@ -25,7 +25,7 @@ public class BusConcurrencyTests
         await using var provider = services.BuildServiceProvider();
         var messageBus = provider.GetRequiredKeyedService<IMessageBus>(MessagingProviders.InMemory);
 
-        var publishTasks = Enumerable.Range(0, 3)
+        var publishTasks = Enumerable.Range(0, 100)
             .Select(i => messageBus.PublishAsync($"Message {i}"));
 
         await Task.WhenAll(publishTasks);
@@ -33,6 +33,6 @@ public class BusConcurrencyTests
         var count = await handler.ReceivedCount.Task
             .WaitAsync(TimeSpan.FromSeconds(1));
 
-        Assert.Equal(3, count);
+        Assert.Equal(100, count);
     }
 }

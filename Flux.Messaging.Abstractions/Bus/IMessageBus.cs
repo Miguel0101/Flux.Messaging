@@ -1,9 +1,7 @@
-using Flux.Messaging.Abstractions.Request;
-
 namespace Flux.Messaging.Abstractions.Bus;
 
-public interface IMessageBus
+public interface IMessageBus : IAsyncDisposable
 {
-    Task<TResult> SendAsync<TResult>(IRequest<TResult> message, CancellationToken ct = default);
-    Task PublishAsync<T>(T message, CancellationToken ct = default);
+    Task SendAsync<TCommand>(TCommand command, CancellationToken ct = default);
+    Task PublishAsync<TMessage>(TMessage message, CancellationToken ct = default);
 }

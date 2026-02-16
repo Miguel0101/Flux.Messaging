@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="Flux.Messaging.Abstractions/Flux.Messaging.Abstractions.csproj" />
+  <Project Path="Flux.Messaging.Benchmarks/Flux.Messaging.Benchmarks.csproj" />
   <Project Path="Flux.Messaging.Core/Flux.Messaging.Core.csproj" />
   <Project Path="Flux.Messaging.Extensions.DependencyInjection/Flux.Messaging.Extensions.DependencyInjection.csproj" />
   <Project Path="Flux.Messaging.InMemory/Flux.Messaging.InMemory.csproj" />

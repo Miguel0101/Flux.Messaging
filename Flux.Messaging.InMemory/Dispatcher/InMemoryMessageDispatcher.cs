@@ -1,33 +1,23 @@
-using Microsoft.Extensions.DependencyInjection;
-using Flux.Messaging.Abstractions.Envelope;
-using Flux.Messaging.Abstractions.Request;
-using Flux.Messaging.Abstractions.Message;
+using Flux.Messaging.Abstractions.Envelopes;
+using Flux.Messaging.Abstractions.Messages;
 using Flux.Messaging.Abstractions.Dispatcher;
 using Microsoft.Extensions.Logging;
+using Flux.Messaging.Core.Commands;
+using Flux.Messaging.Core.Messages;
 
 namespace Flux.Messaging.InMemory.Dispatcher;
 
-internal sealed class InMemoryMessageDispatcher(IServiceProvider provider, ILogger<InMemoryMessageDispatcher> logger) : IMessageDispatcher
+internal sealed class InMemoryMessageDispatcher(
+    MessageHandlerResolver messageHandlerResolver,
+    CommandHandlerResolver commandHandlerResolver,
+    ILogger<InMemoryMessageDispatcher> logger) : IMessageDispatcher
 {
-    public async Task DispatchPublishAsync(MessageEnvelope envelope, CancellationToken ct)
+    public async Task DispatchMessageAsync(MessageEnvelope envelope, CancellationToken ct)
     {
         var messageType = envelope.Payload.GetType();
-        var handlerType = typeof(IMessageHandler<>).MakeGenericType(messageType);
+        var handlers = messageHandlerResolver.GetHandlers(messageType);
 
-        await using var scope = provider.CreateAsyncScope();
-
-        var handlers = scope.ServiceProvider
-            .GetServices(handlerType)
-            .OfType<IDynamicMessageHandler>()
-            .ToArray();
-
-        if (handlers.Length == 0)
-        {
-            logger.LogWarning("No handler registered found for {MessageType}.", messageType.Name);
-            return;
-        }
-
-        var tasks = handlers.Select(handler => ExecuteHandlerAsync(handler, envelope, ct)).ToList();
+        var tasks = handlers.Select(handler => ExecuteHandlerAsync(handler, envelope, ct));
 
         await Task.WhenAll(tasks);
     }
@@ -44,29 +34,11 @@ internal sealed class InMemoryMessageDispatcher(IServiceProvider provider, ILogg
         }
     }
 
-    public async Task<object> DispatchRequestAsync(MessageEnvelope envelope, CancellationToken ct = default)
+    public Task DispatchCommandAsync(MessageEnvelope envelope, CancellationToken ct = default)
     {
-        var payloadType = envelope.Payload.GetType();
+        var commandType = envelope.Payload.GetType();
+        var handler = commandHandlerResolver.GetHandler(commandType);
 
-        var requestInterface = payloadType.GetInterfaces()
-            .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IRequest<>)) ??
-                throw new InvalidOperationException($"{payloadType.Name} does not implement IRequest<out TResponse>");
-
-        var responseType = requestInterface.GetGenericArguments()[0];
-        var handlerType = typeof(IRequestHandler<,>).MakeGenericType(payloadType, responseType);
-
-        await using var scope = provider.CreateAsyncScope();
-
-        var handlers = scope.ServiceProvider
-            .GetServices(handlerType)
-            .Cast<IDynamicRequestHandler>()
-            .ToArray();
-
-        return handlers.Length switch
-        {
-            0 => throw new InvalidOperationException($"No handler registered found for {payloadType.Name}."),
-            1 => await handlers[0].HandleAsync(envelope.Payload, ct),
-            _ => throw new InvalidOperationException($"Multiple handlers found for {payloadType.Name}.")
-        };
+        return handler.HandleAsync(envelope.Payload, ct);
     }
 }

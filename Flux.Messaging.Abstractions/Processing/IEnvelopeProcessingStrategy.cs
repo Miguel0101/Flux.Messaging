@@ -1,4 +1,4 @@
-using Flux.Messaging.Abstractions.Envelope;
+using Flux.Messaging.Abstractions.Envelopes;
 
 namespace Flux.Messaging.Abstractions.Processing;
 

@@ -1,9 +1,9 @@
 using Flux.Messaging.Abstractions.Bus;
 using Flux.Messaging.Abstractions.Providers;
-using Flux.Messaging.Abstractions.Request;
+using Flux.Messaging.Abstractions.Commands;
 using Flux.Messaging.Extensions.DependencyInjection;
 using Flux.Messaging.Tests.Send.Handlers;
-using Flux.Messaging.Tests.Send.Requests;
+using Flux.Messaging.Tests.Send.Commands;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -12,23 +12,27 @@ namespace Flux.Messaging.Tests.Send.Bus;
 public class BusConcurrencyTests
 {
     [Fact]
-    public async Task SendAsync_ShouldHandleConcurrentRequests()
+    public async Task SendAsync_ShouldHandleConcurrentCommands()
     {
         var services = new ServiceCollection();
+        var handler = new CountingCommandHandler();
 
         services.AddLogging(builder => builder.AddConsole());
-        services.AddTransient<IRequestHandler<PingRequest, string>, PingRequestHandler>();
+        services.AddSingleton<ICommandHandler<CountCommand>>(handler);
         services.AddFluxMessaging()
             .UseInMemory();
 
         await using var provider = services.BuildServiceProvider();
         var messageBus = provider.GetRequiredKeyedService<IMessageBus>(MessagingProviders.InMemory);
 
-        var tasks = Enumerable.Range(0, 20)
-            .Select(_ => messageBus.SendAsync(new PingRequest()));
+        var tasks = Enumerable.Range(0, 100)
+            .Select(task => messageBus.SendAsync(new CountCommand()));
 
-        var results = await Task.WhenAll(tasks);
+        await Task.WhenAll(tasks);
 
-        Assert.All(results, r => Assert.Equal("pong", r));
+        var count = await handler.ReceivedCount.Task
+            .WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(100, count);
     }
 }

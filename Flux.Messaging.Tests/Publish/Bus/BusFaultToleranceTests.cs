@@ -1,5 +1,5 @@
 using Flux.Messaging.Abstractions.Bus;
-using Flux.Messaging.Abstractions.Message;
+using Flux.Messaging.Abstractions.Messages;
 using Flux.Messaging.Abstractions.Providers;
 using Flux.Messaging.Extensions.DependencyInjection;
 using Flux.Messaging.Tests.Publish.Handlers;
@@ -19,7 +19,7 @@ public class BusFaultToleranceTests
         var services = new ServiceCollection();
 
         services.AddLogging(builder => builder.AddConsole());
-        services.AddSingleton<IMessageHandler<string>>(failingHandler);
+        services.AddSingleton<IMessageHandler<int>>(failingHandler);
         services.AddSingleton<IMessageHandler<string>>(capturingHandler);
         services.AddFluxMessaging()
             .UseInMemory();
@@ -30,10 +30,13 @@ public class BusFaultToleranceTests
         const string publishedMessage = "Resilience";
 
         await messageBus.PublishAsync(publishedMessage);
+        await messageBus.PublishAsync(10);
 
         var received = await capturingHandler.ReceivedMessage.Task
             .WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.Equal(publishedMessage, received);
+
+        await messageBus.DisposeAsync();
     }
 }

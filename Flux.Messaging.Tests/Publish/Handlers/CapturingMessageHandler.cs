@@ -1,4 +1,4 @@
-using Flux.Messaging.Abstractions.Message;
+using Flux.Messaging.Abstractions.Messages;
 
 namespace Flux.Messaging.Tests.Publish.Handlers;
 
