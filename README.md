@@ -4,7 +4,7 @@
 It provides a unified model for:
 
 - **Publish / Subscribe** (fire-and-forget)
-- **Distributed Request / Response**
+- **Distributed Command Bus**
 - **Strongly-typed handlers**
 - **Pluggable transports** (InMemory, AMQP, etc.)
 
@@ -61,11 +61,11 @@ Intel Xeon CPU E5-2680 v4 2.40GHz, 1 CPU, 28 logical and 14 physical cores
 - Multiple handlers supported
 - No response expected
 
-### Send (Request)
-- Request / Response
+### Send (Command)
+- Command (CQRS)
 - Exactly one handler
-- Uses `CorrelationId` and `ReplyTo`
 - Can cross process and service boundaries
+- No response expected (Expects ACK)
 
 ---
 
@@ -115,32 +115,23 @@ await messageBus.PublishAsync(new ProductAdded(productId));
 
 ---
 
-## 📥 Send (Request / Response)
+## Send
 
-### Request
-
-```csharp
-public sealed record ReserveStock(Guid ProductId, int Quantity)
-    : IRequest<ReserveStockResult>;
-```
-
-### Response
+### Command
 
 ```csharp
-public sealed record ReserveStockResult(bool Success);
+public sealed record ReserveStockCommand(Guid ProductId, int Quantity);
 ```
 
 ### Handler
 
 ```csharp
-public sealed class ReserveStockHandler
-    : IRequestHandler<ReserveStock, ReserveStockResult>
+public sealed class ReserveStockHandler : ICommandHandler<ReserveStockCommand>
 {
-    public Task<ReserveStockResult> HandleAsync(
-        ReserveStock request,
-        CancellationToken ct = default)
+    public Task HandleAsync(ReserveStock request, CancellationToken ct = default)
     {
-        return Task.FromResult(new ReserveStockResult(true));
+        Console.WriteLine($"Reserving product {request.ProductId}.");
+        return Task.CompletedTask;
     }
 }
 ```
@@ -148,8 +139,7 @@ public sealed class ReserveStockHandler
 ### Send
 
 ```csharp
-var result = await messageBus.SendAsync<ReserveStockResult>(
-    new ReserveStock(productId, 2));
+await messageBus.SendAsync(new ReserveStock(productId, 2));
 ```
 
 ---
@@ -159,7 +149,7 @@ var result = await messageBus.SendAsync<ReserveStockResult>(
 ```
 Application
  └─ IMessageBus
-      ├─ Send (Request)
+      ├─ Send (Command)
       └─ Publish (Event)
 
 Infrastructure
@@ -183,7 +173,6 @@ Flux.Messaging is **.NET-first**, but transport-agnostic.
 Other languages can:
 - Consume AMQP envelopes
 - Deserialize the payload
-- Reply using `ReplyTo` and `CorrelationId`
 
 No framework dependency is required.
 
