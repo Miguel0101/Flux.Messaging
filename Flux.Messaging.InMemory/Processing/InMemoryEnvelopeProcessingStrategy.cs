@@ -1,4 +1,4 @@
-using Flux.Messaging.Abstractions.Envelope;
+using Flux.Messaging.Abstractions.Envelopes;
 using Flux.Messaging.Abstractions.Processing;
 using Flux.Messaging.Abstractions.Providers;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,9 +12,7 @@ internal sealed class InMemoryEnvelopeProcessingStrategy([FromKeyedServices(Mess
     public Task ProcessAsync(MessageEnvelope envelope, CancellationToken ct = default)
     {
         if (!_processors.TryGetValue(envelope.Type, out var processor))
-        {
             throw new InvalidOperationException($"Invalid envelope processor: {envelope.Type}.");
-        }
 
         return processor.ProcessAsync(envelope, ct);
     }

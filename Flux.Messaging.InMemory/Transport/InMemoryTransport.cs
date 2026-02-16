@@ -1,6 +1,6 @@
 using System.Threading.Channels;
-using Flux.Messaging.Abstractions.Envelope;
-using Flux.Messaging.Abstractions.Transport;
+using Flux.Messaging.Abstractions.Envelopes;
+using Flux.Messaging.Abstractions.Transports;
 using Microsoft.Extensions.Logging;
 
 namespace Flux.Messaging.InMemory.Transport;
@@ -11,13 +11,12 @@ internal sealed class InMemoryTransport : ITransport
     private readonly Channel<MessageEnvelope> _channel;
     private readonly Task _processingTask;
     private readonly ILogger _logger;
-    private readonly CancellationTokenSource _cts = new();
     private bool _disposed;
 
     public InMemoryTransport(ILogger<InMemoryTransport> logger)
     {
         _channel = Channel.CreateUnbounded<MessageEnvelope>();
-        _processingTask = ProcessAsync(_cts.Token);
+        _processingTask = ProcessAsync();
         _logger = logger;
     }
 
@@ -31,14 +30,14 @@ internal sealed class InMemoryTransport : ITransport
         _receiver = receiver;
     }
 
-    private async Task ProcessAsync(CancellationToken ct)
+    private async Task ProcessAsync()
     {
-        await foreach (var envelope in _channel.Reader.ReadAllAsync(ct))
+        await foreach (var envelope in _channel.Reader.ReadAllAsync())
         {
             try
             {
                 if (_receiver != null)
-                    await _receiver(envelope, ct);
+                    await _receiver(envelope, default);
             }
             catch (Exception ex)
             {
@@ -49,25 +48,19 @@ internal sealed class InMemoryTransport : ITransport
 
     public async ValueTask DisposeAsync()
     {
-        if (_disposed)
-        {
-            return;
-        }
+        if (_disposed) return;
 
         _disposed = true;
 
         _channel.Writer.TryComplete();
-        _cts.Cancel();
 
         try
         {
             await _processingTask;
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
         {
-            _logger.LogError(ex, "Error while shutting down transport.");
+            _logger.LogInformation("Transport shutting down...");
         }
-
-        _cts.Dispose();
     }
 }

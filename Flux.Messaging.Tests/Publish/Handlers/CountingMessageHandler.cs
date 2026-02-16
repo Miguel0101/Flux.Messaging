@@ -1,4 +1,4 @@
-using Flux.Messaging.Abstractions.Message;
+using Flux.Messaging.Abstractions.Messages;
 
 namespace Flux.Messaging.Tests.Publish.Handlers;
 
@@ -9,7 +9,7 @@ public sealed class CountingMessageHandler : IMessageHandler<string>
 
     public Task HandleAsync(string message, CancellationToken ct)
     {
-        if (Interlocked.Increment(ref _count) == 3)
+        if (Interlocked.Increment(ref _count) == 100)
             ReceivedCount.TrySetResult(_count);
 
         return Task.CompletedTask;
